@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "OG Client Communications"
+description = "A secure workbench for The Oldham Group to review Follow Up Boss client segments and create fact-checked, approval-ready email and SMS drafts. The first release is read-only and draft-only: it does not send messages or write back to FUB."
+version = "1.0.0"
+id = "artifacts/og-client-comms"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24680
+
+[services.development]
+run = "pnpm --filter @workspace/og-client-comms run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/og-client-comms", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/og-client-comms/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24680"
+BASE_PATH = "/"

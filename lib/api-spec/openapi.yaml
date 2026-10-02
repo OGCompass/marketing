@@ -1,0 +1,522 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /workspace/access:
+    get:
+      operationId: getWorkspaceAccess
+      responses:
+        "200":
+          description: Signed-in user's access to the internal console
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceAccess"
+        "401":
+          description: Sign-in required
+        "429":
+          description: Authenticated principal's access-check allowance exhausted
+          headers:
+            Retry-After: {schema: {type: string}, description: Seconds before retrying}
+            Cache-Control: {schema: {type: string}, description: Always no-store}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceAccess"
+        "503":
+          description: Access verification unavailable or shared lookup capacity exhausted
+          headers:
+            Retry-After: {schema: {type: string}, description: Seconds before retrying}
+            Cache-Control: {schema: {type: string}, description: Always no-store}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceAccess"
+  /workspace/status:
+    get:
+      operationId: getWorkspaceStatus
+      responses:
+        "200":
+          description: Real workflow readiness, not marketing estimates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceStatus"
+        "403":
+          description: Internal access required
+        "429":
+          $ref: "#/components/responses/AccessThrottled"
+        "503":
+          $ref: "#/components/responses/AccessUnavailable"
+  /inventory:
+    get:
+      operationId: getFieldInventory
+      responses:
+        "200":
+          description: Latest masked field discovery, or null before discovery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryState"
+        "403":
+          description: Internal access required
+        "429":
+          $ref: "#/components/responses/AccessThrottled"
+        "503":
+          $ref: "#/components/responses/AccessUnavailable"
+  /inventory/discover:
+    post:
+      operationId: discoverFubFields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoveryInput"
+      responses:
+        "200":
+          description: Read-only discovery report; no raw contacts are retained
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryReport"
+        "400":
+          description: Confirmation required
+        "403":
+          description: Internal access required
+        "429":
+          $ref: "#/components/responses/AccessThrottled"
+        "503":
+          $ref: "#/components/responses/AccessUnavailable"
+        "409":
+          description: Discovery already running
+        "502":
+          description: FUB discovery could not complete
+  /program/blueprint:
+    get:
+      operationId: getProgramBlueprint
+      responses:
+        "200":
+          description: Proposed rules and content routing, awaiting inventory review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramBlueprint"
+        "403":
+          description: Internal access required
+        "429":
+          $ref: "#/components/responses/AccessThrottled"
+        "503":
+          $ref: "#/components/responses/AccessUnavailable"
+  /program/approvals:
+    get:
+      operationId: getApprovalReview
+      summary: Read the current durable guided setup approval review
+      responses:
+        "200":
+          description: Current masked-inventory-bound review, answers, progress and immutable history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalReview"
+        "403":
+          description: Internal access required
+        "429":
+          $ref: "#/components/responses/AccessThrottled"
+        "503":
+          description: Approval storage or masked inventory unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalError"
+    post:
+      operationId: updateApprovalReview
+      summary: Save, approve a section, explicitly reset stale review, or finalize proposed setup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApprovalReviewInput"
+      responses:
+        "200":
+          description: Updated durable review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalReview"
+        "400":
+          description: Invalid answer, missing evidence, unmet approval prerequisite, or unauthorized reviewer role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalError"
+        "403":
+          description: Internal access required
+        "409":
+          description: Concurrent revision or stale inventory/rule version conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalError"
+        "429":
+          $ref: "#/components/responses/AccessThrottled"
+        "503":
+          description: Approval storage or masked inventory unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalError"
+components:
+  responses:
+    AccessThrottled:
+      description: Authenticated principal's access-check rate or concurrency limit exhausted
+      headers:
+        Retry-After: {schema: {type: string}, description: Seconds before retrying}
+        Cache-Control: {schema: {type: string}, description: Always no-store}
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: {type: string}
+    AccessUnavailable:
+      description: Access verification unavailable or shared lookup capacity exhausted
+      headers:
+        Retry-After: {schema: {type: string}, description: Seconds before retrying}
+        Cache-Control: {schema: {type: string}, description: Always no-store}
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: {type: string}
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    WorkspaceAccess:
+      type: object
+      required: [authorized, userId, reason]
+      properties:
+        authorized: {type: boolean}
+        userId: {type: string}
+        reason: {type: string}
+    WorkflowStep:
+      type: object
+      required: [number, title, status, description]
+      properties:
+        number: {type: integer}
+        title: {type: string}
+        status: {type: string, enum: [current, awaiting_review, locked]}
+        description: {type: string}
+    PolicyGate:
+      type: object
+      required: [id, title, status, detail]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        status: {type: string, enum: [pending, complete, locked]}
+        detail: {type: string}
+    WorkspaceStatus:
+      type: object
+      required: [readOnly, sendingEnabled, writesEnabled, storageApproved, credentialsConfigured, connectionStatus, lastInventoryAt, totalSampled, fieldsObserved, missingCustomFields, pilotMarkets, steps, gates]
+      properties:
+        readOnly: {type: boolean}
+        sendingEnabled: {type: boolean}
+        writesEnabled: {type: boolean}
+        storageApproved: {type: boolean}
+        credentialsConfigured: {type: boolean}
+        connectionStatus: {type: string, enum: [not_checked, verified, failed, partial]}
+        lastInventoryAt: {type: [string, "null"]}
+        totalSampled: {type: integer}
+        fieldsObserved: {type: integer}
+        missingCustomFields: {type: [integer, "null"]}
+        pilotMarkets: {type: array, items: {type: string}}
+        steps: {type: array, items: {$ref: "#/components/schemas/WorkflowStep"}}
+        gates: {type: array, items: {$ref: "#/components/schemas/PolicyGate"}}
+    DiscoveryInput:
+      type: object
+      required: [confirmReadOnly]
+      properties:
+        confirmReadOnly: {type: boolean}
+    InventoryField:
+      type: object
+      required: [name, type, populatedPercent, safeExample, redacted]
+      properties:
+        name: {type: string}
+        type: {type: string}
+        populatedPercent: {type: number}
+        safeExample: {type: string}
+        redacted: {type: boolean}
+    InventorySection:
+      type: object
+      required: [entity, status, sampleCount, fields]
+      properties:
+        entity: {type: string}
+        status: {type: string, enum: [read, failed]}
+        sampleCount: {type: integer}
+        fields: {type: array, items: {$ref: "#/components/schemas/InventoryField"}}
+    InventoryFinding:
+      type: object
+      required: [severity, title, detail]
+      properties:
+        severity: {type: string, enum: [info, warning, blocker]}
+        title: {type: string}
+        detail: {type: string}
+    CustomFieldCheck:
+      type: object
+      required: [expectedName, apiName, present]
+      properties:
+        expectedName: {type: string}
+        apiName: {type: [string, "null"]}
+        present: {type: boolean}
+    InventoryReport:
+      type: object
+      required: [generatedAt, status, readOnly, contactsPersisted, sections, findings, customFieldChecks, markdown]
+      properties:
+        generatedAt: {type: string}
+        status: {type: string, enum: [complete, partial, failed]}
+        readOnly: {type: boolean}
+        contactsPersisted: {type: integer}
+        sections: {type: array, items: {$ref: "#/components/schemas/InventorySection"}}
+        findings: {type: array, items: {$ref: "#/components/schemas/InventoryFinding"}}
+        customFieldChecks: {type: array, items: {$ref: "#/components/schemas/CustomFieldCheck"}}
+        markdown: {type: string}
+    InventoryState:
+      type: object
+      required: [report]
+      properties:
+        report:
+          oneOf:
+            - $ref: "#/components/schemas/InventoryReport"
+            - type: "null"
+    AudienceDefinition:
+      type: object
+      required: [code, name, purpose, cadenceDays, contentDirection, identificationRules, reviewNotes, unassignedDirection]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        purpose: {type: string}
+        cadenceDays: {type: integer}
+        contentDirection: {type: string}
+        identificationRules: {type: array, items: {type: string}}
+        reviewNotes: {type: array, items: {type: string}}
+        unassignedDirection: {type: string}
+    AssignmentStrategy:
+      type: object
+      required: [code, name, identification, communicationDirection, responsibleParty, releaseRequirements]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        identification: {type: string}
+        communicationDirection: {type: string}
+        responsibleParty: {type: string}
+        releaseRequirements: {type: array, items: {type: string}}
+    PriceBandDefinition:
+      type: object
+      required: [code, label]
+      properties:
+        code: {type: string}
+        label: {type: string}
+        min: {type: number}
+        maxExclusive: {type: number}
+    NumericRules:
+      type: object
+      required: [windows, limits]
+      properties:
+        windows: {type: object, additionalProperties: {type: number}}
+        limits: {type: object, additionalProperties: {type: number}}
+    ProgramBlueprint:
+      type: object
+      required: [ruleVersion, status, audiences, priceBands, markets, hardGates, unresolvedRules, smsRequirements, classificationSteps, assignmentStrategies, numericRules]
+      properties:
+        ruleVersion: {type: string}
+        status: {type: string}
+        audiences: {type: array, items: {$ref: "#/components/schemas/AudienceDefinition"}}
+        priceBands: {type: array, items: {$ref: "#/components/schemas/PriceBandDefinition"}}
+        markets: {type: array, items: {type: string}}
+        hardGates: {type: array, items: {type: string}}
+        unresolvedRules: {type: array, items: {type: string}}
+        smsRequirements: {type: array, items: {type: string}}
+        classificationSteps: {type: array, items: {type: string}}
+        assignmentStrategies: {type: array, items: {$ref: "#/components/schemas/AssignmentStrategy"}}
+        numericRules: {$ref: "#/components/schemas/NumericRules"}
+    ApprovalError:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
+    ReviewDecision:
+      type: string
+      enum: [pending, approved, needs_changes]
+    ReviewAnswer:
+      type: object
+      required: [fieldId, meaning, confirmedValues, evidence, decision, notes]
+      properties:
+        fieldId: {type: [string, "null"]}
+        meaning: {type: [string, "null"], maxLength: 80}
+        confirmedValues:
+          type: array
+          maxItems: 40
+          items: {type: string, maxLength: 120}
+        evidence: {type: string, maxLength: 500}
+        decision: {$ref: "#/components/schemas/ReviewDecision"}
+        notes: {type: string, maxLength: 1000}
+    FieldOption:
+      type: object
+      required: [id, entity, name, type, semantics]
+      properties:
+        id: {type: string}
+        entity: {type: string}
+        name: {type: string}
+        type: {type: string}
+        semantics: {type: array, items: {type: string}}
+    ReviewMeaning:
+      type: object
+      required: [value, label]
+      properties:
+        value: {type: string}
+        label: {type: string}
+    ReviewItem:
+      type: object
+      required: [id, title, guidance, required, entities, fieldRequired, acceptedFieldSemantics, confirmedValuesRequired, meanings, approvalEligibleMeanings, fieldOptions, savedAnswer, blockers, approvalEligible]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        guidance: {type: string}
+        required: {type: boolean}
+        entities: {type: array, items: {type: string}}
+        fieldRequired: {type: boolean}
+        acceptedFieldSemantics: {type: array, items: {type: string}}
+        confirmedValuesRequired: {type: boolean}
+        meanings: {type: array, items: {$ref: "#/components/schemas/ReviewMeaning"}}
+        approvalEligibleMeanings: {type: array, items: {type: string}}
+        fieldOptions: {type: array, items: {$ref: "#/components/schemas/FieldOption"}}
+        savedAnswer:
+          oneOf:
+            - $ref: "#/components/schemas/ReviewAnswer"
+            - type: "null"
+        blockers: {type: array, items: {type: string}}
+        approvalEligible: {type: boolean}
+    SectionApproval:
+      type: object
+      required: [userId, reviewerLabel, approvedAt, revision]
+      properties:
+        userId: {type: string}
+        reviewerLabel: {type: string}
+        approvedAt: {type: string}
+        revision: {type: integer}
+    ReviewSection:
+      type: object
+      required: [id, title, guidance, items, approval, approved]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        guidance: {type: string}
+        items: {type: array, items: {$ref: "#/components/schemas/ReviewItem"}}
+        approval:
+          oneOf:
+            - $ref: "#/components/schemas/SectionApproval"
+            - type: "null"
+        approved: {type: boolean}
+    ApprovalHistoryEntry:
+      type: object
+      required: [revision, action, sectionId, principalId, reviewerLabel, occurredAt, sourceVersion, summary]
+      properties:
+        revision: {type: integer}
+        action: {type: string}
+        sectionId: {type: [string, "null"]}
+        principalId: {type: string}
+        reviewerLabel: {type: string}
+        occurredAt: {type: [string, "null"]}
+        sourceVersion: {type: string}
+        summary: {type: string}
+    FinalApproval:
+      type: object
+      required: [userId, reviewerLabel, signedAt, revision, proposalOnly]
+      properties:
+        userId: {type: string}
+        reviewerLabel: {type: string}
+        signedAt: {type: string}
+        revision: {type: integer}
+        proposalOnly: {type: boolean, enum: [true]}
+    ApprovalProgress:
+      type: object
+      required: [approvedItems, totalItems, approvedSections]
+      properties:
+        approvedItems: {type: integer}
+        totalItems: {type: integer}
+        approvedSections: {type: integer}
+    UpdateApprovalReviewInput:
+      type: object
+      required: [expectedRevision, sourceVersion, action]
+      properties:
+        expectedRevision: {type: integer, minimum: 0}
+        sourceVersion: {type: string, minLength: 64, maxLength: 64}
+        action: {type: string, enum: [save, review_item, approve, finalize, reset]}
+        itemId: {type: string, maxLength: 100}
+        answer: {$ref: "#/components/schemas/ReviewAnswer"}
+        sectionId: {type: string, maxLength: 80}
+        confirmProposalOnly: {type: boolean}
+        answers:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ReviewAnswer"
+    ApprovalReview:
+      type: object
+      required: [revision, sourceVersion, ruleVersion, approvalDefinitionVersion, inventoryDate, inventoryStatus, inventoryComplete, status, canApprove, currentReviewer, sections, fieldOptions, savedAnswers, progress, blockers, history, finalApproval, proposal]
+      properties:
+        revision: {type: integer}
+        sourceVersion: {type: string}
+        ruleVersion: {type: string}
+        approvalDefinitionVersion: {type: string}
+        inventoryDate: {type: [string, "null"]}
+        inventoryStatus: {type: string, enum: [complete, partial, failed, not_checked]}
+        inventoryComplete: {type: boolean}
+        status: {type: string, enum: [pending, in_progress, stale, ready_for_signoff, final_approved]}
+        canApprove: {type: boolean}
+        currentReviewer: {type: [string, "null"]}
+        sections: {type: array, items: {$ref: "#/components/schemas/ReviewSection"}}
+        fieldOptions: {type: array, items: {$ref: "#/components/schemas/FieldOption"}}
+        savedAnswers:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ReviewAnswer"
+        progress: {$ref: "#/components/schemas/ApprovalProgress"}
+        blockers: {type: array, items: {type: string}}
+        history: {type: array, items: {$ref: "#/components/schemas/ApprovalHistoryEntry"}}
+        finalApproval:
+          oneOf:
+            - $ref: "#/components/schemas/FinalApproval"
+            - type: "null"
+        proposal: {$ref: "#/components/schemas/ProgramBlueprint"}
+

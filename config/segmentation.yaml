@@ -1,0 +1,181 @@
+# Proposed business rules from the uploaded blueprint, NOT activated yet.
+# Field inventory review and written hosting approval are prerequisites to sync.
+status: awaiting_inventory_review
+pilot_markets: [BUR, LGA]
+discovery:
+  people_sample: 50
+  events_sample: 100
+  deals_sample: 20
+  definitions_limit: 500
+  expected_custom_fields:
+    - OG Primary Market
+    - OG Price Band
+    - OG Engagement Score
+    - OG Last Market Email
+    - OG Segment
+markets:
+  SF: San Francisco
+  ATH: Atherton
+  BUR: Burlingame
+  HIL: Hillsborough
+  MEN: Menlo Park
+  PAL: Palo Alto
+  SMT: San Mateo
+  WSD: Woodside
+  CUP: Cupertino
+  LAH: Los Altos Hills
+  LOA: Los Altos
+  LGA: Los Gatos
+  SAR: Saratoga
+shared_zips:
+  "94010": [BUR, HIL]
+  "94022": [LOA, LAH]
+  "94024": [LOA, LAH]
+  "94062": [WSD, OUT_OF_SCOPE_REDWOOD_CITY]
+audiences:
+  - code: BUY
+    name: Active buyers
+    purpose: Recent property interest or a confirmed active-buyer stage.
+    cadenceDays: 14
+    contentDirection: Relevant inventory context, verified market changes, and one invitation to discuss the search.
+    identificationRules:
+      - A reviewed mapping confirms an active-buyer stage, or a dated property/search event shows current buying interest.
+      - "Recent buyer evidence uses the configured {{buyer_days}}-day window. Generic email opens alone do not establish buying intent."
+    reviewNotes:
+      - Active-transaction suppression applies even when buyer evidence exists.
+      - A low engagement score must not override recent buying interest; contradictory evidence requires human review.
+    unassignedDirection: Have the designated team reviewer assess search intent, offer a human consultation through an approved team sender, and route qualified replies to an agent before agent-specific follow-up.
+  - code: OWN
+    name: Past clients & owners
+    purpose: Confirmed past-client relationship and high-confidence address or closed-deal evidence.
+    cadenceDays: 30
+    contentDirection: Local market information and ownership resources, never an estimate of the client's own home.
+    identificationRules:
+      - A reviewed past-client stage or closed-deal relationship confirms the client relationship.
+      - High-confidence address or closed-deal evidence supports the home market; a mailing address alone is not proof of ownership.
+    reviewNotes:
+      - Conflicting current buying intent and past ownership evidence require an approved audience-precedence rule.
+      - Do not infer home value or ownership from an email address, source, or price-band estimate.
+    unassignedDirection: Propose a team relationship check and useful homeowner resources. Ask the reviewer to establish a responsible relationship owner and route any valuation or selling request to an agent.
+  - code: SPH
+    name: Sphere
+    purpose: A confirmed sphere source or tag and high-confidence home-market evidence.
+    cadenceDays: 30
+    contentDirection: Useful local market context and a low-pressure offer to help.
+    identificationRules:
+      - A source or tag explicitly mapped and approved as sphere evidence confirms the relationship.
+      - High-confidence home-market evidence supports relevant local content.
+    reviewNotes:
+      - A generic lead source or lack of recent activity does not establish a sphere relationship.
+      - Sphere mapping values are currently unconfirmed; do not guess them from display names.
+    unassignedDirection: Propose a low-pressure Oldham Group relationship update through the team channel, with replies reviewed and an agent handoff when a real estate need is expressed.
+  - code: NUR
+    name: Longer-term nurture
+    purpose: A confirmed longer-term timeframe or older activity that still fits the nurture window.
+    cadenceDays: 30
+    contentDirection: Planning resources and verified market context suited to a future move.
+    identificationRules:
+      - A reviewed longer-term moving timeframe confirms future intent, or dated qualifying activity fits the configured nurture window.
+      - "The configured activity window is {{nurture_min_days}}–{{nurture_max_days}} days. Missing history is not older activity."
+    reviewNotes:
+      - Confirm which event types and timestamps count as qualifying activity before using this window.
+      - New buying interest or conflicting stage evidence requires review rather than automatic downgrading.
+    unassignedDirection: Propose future-move planning resources and a preference/timeframe check through a monitored team channel. Route replies indicating near-term intent to an agent.
+  - code: DOR
+    name: Dormant / reactivation
+    purpose: Confirmed inactivity, not missing or inaccessible engagement data.
+    cadenceDays: 90
+    contentDirection: A short permission-check message, with easy opt-out and no urgency claims.
+    identificationRules:
+      - "Complete, readable activity history confirms inactivity for at least {{dormant_min_days}} days."
+      - No recent buyer signal, active transaction, or stronger conflicting relationship evidence is present.
+    reviewNotes:
+      - Missing clicks, opens, replies, or inaccessible history mean UNKNOWN, not dormant.
+      - "The configured limit is {{dormant_attempts}} reactivation attempts; stop for human review after that limit. Unsubscribe or DNC always suppresses outreach."
+    unassignedDirection: Propose only a reviewed permission-check through the team sender when channel permission is already established. Suppress opt-outs immediately, stop at the configured attempt limit, and route interested replies to an agent.
+classification_steps:
+  - "Check suppression first: exclusion/hold/DNC/Trash/active-transaction rules, excluded-source restrictions, and channel-specific permission. A deliverable address alone is not consent."
+  - "Determine assignment separately from audience. Use the reviewed FUB agent/user relationship and its semantics; a readable, confirmed empty assignment means UNASSIGNED. Missing, unreadable, deleted/inactive-agent, or conflicting assignment evidence goes to REVIEW."
+  - "Identify the market using high-confidence, reviewed city/address/closed-deal evidence or at least {{market_events_required}} qualifying market events in {{event_market_days}} days. Shared ZIPs and conflicting home/search evidence require review; do not guess the city. The configured pilot is {{pilot_markets}}; evidence for another city does not make a client eligible for the pilot."
+  - "Match audience evidence using the rules below. Multiple matches require an approved precedence rule; no sufficient evidence means UNKNOWN / REVIEW, not dormant. No AI segmentation or scoring is used."
+  - "Choose a price variant only from reviewed, applicable budget or deal-price evidence. P1/P2/P3/P4 use the configured boundaries; missing or unsuitable evidence uses GENERAL, not an estimated budget or home value."
+  - "Recheck audience cadence and the global cap of {{program_emails_per_30_days}} program emails per 30 days, including other campaigns and agent outreach. Cross-campaign frequency visibility must be confirmed."
+  - "A named human reviews category evidence, market, variant, responsible owner, recipient permission and approved content before a send. This release does not classify contacts or send messages."
+assignment_strategies:
+  - code: ASSIGNED
+    name: Assigned agent
+    identification: A reviewed FUB relationship resolves to a known, active agent. Do not equate Clerk app access with FUB agent assignment.
+    communicationDirection: Coordinate category-specific communication with that agent and account for their existing outreach.
+    responsibleParty: The assigned agent and the named program reviewer.
+    releaseRequirements:
+      - Confirm the FUB assignment mapping and agent status.
+      - Pass all audience, channel, suppression, frequency, content and send-approval gates.
+  - code: UNASSIGNED
+    name: Unassigned clients — proposed team-managed queue
+    identification: Only a readable assignment field/relationship whose approved semantics explicitly establish no assigned agent qualifies. A missing API field or inaccessible agent is not proof of no assignment.
+    communicationDirection: Use the underlying audience strategy through an approved Oldham Group team sender and monitored reply inbox. Human triage determines the relationship owner and agent handoff; never invent an agent or enable an automatic campaign merely because assignment is empty.
+    responsibleParty: A designated Oldham Group triage owner, approved sender, and reply/opt-out reviewer; these responsibilities still need to be named.
+    releaseRequirements:
+      - Name the triage owner, approve sender identity and monitored reply/opt-out routing.
+      - Explicitly approve and implement a team-managed exception to the current assigned-agent sending gate.
+      - Pass the same consent, suppression, market/category evidence, content, cadence and global frequency checks as assigned clients.
+      - Route buying/selling requests to an agent before agent-specific follow-up; keep unresolved identity or intent in review.
+  - code: REVIEW
+    name: Unknown or conflicting assignment
+    identification: Assignment is missing from the response, unreadable, conflicting, or points to an agent whose status/relationship cannot be confirmed.
+    communicationDirection: Hold outreach and ask operations to reconcile the FUB record. Do not treat this state as unassigned or dormant.
+    responsibleParty: Operations and the named program reviewer.
+    releaseRequirements:
+      - Resolve assignment and category evidence before any outreach.
+price_bands:
+  - {code: P1, label: "Under $2,000,000", min: 0, max_exclusive: 2000000}
+  - {code: P2, label: "$2,000,000–$3,999,999", min: 2000000, max_exclusive: 4000000}
+  - {code: P3, label: "$4,000,000–$7,999,999", min: 4000000, max_exclusive: 8000000}
+  - {code: P4, label: "$8,000,000 and up", min: 8000000}
+  - {code: GENERAL, label: "General variant — price unknown"}
+hard_gates:
+  - Deliverable email and a confirmed email permission/status mapping.
+  - No exclusion, hold, or do-not-contact tag.
+  - No active transaction or Trash stage.
+  - An assigned agent is currently required to send. Unassigned clients have a proposed team-managed review strategy only; a named triage owner and explicit approved team-sender exception are required before that gate can change.
+  - Excluded sources are suppressed; Zillow awaits a terms review.
+  - Audience cadence and the global program frequency cap must pass.
+  - Market and audience must be supported by observed, reviewable evidence.
+unresolved_rules:
+  - A low engagement score must not override a recent buyer signal into dormant status. Resolve this conflict before implementation.
+  - Unavailable open, click, or reply data means unknown engagement, not confirmed inactivity.
+  - Define SMS eligibility separately from email. A deliverable email is not permission to send a text.
+  - Verify shared ZIP city evidence; a ZIP alone cannot distinguish Burlingame from Hillsborough.
+  - Define how recent search activity overrides an old home or closed-deal market.
+  - Frequency protection must include other FUB campaigns and agent outreach, not only this program's local send log.
+  - Preserve OGM-EXCL and OGM-HOLD when replacing program segment tags; never remove every OGM- tag indiscriminately.
+  - Removing old segment tags must account for concurrent agent edits; mergeTags=true protects additions, not a stale full-list replacement.
+sms_requirements:
+  - Document permitted sending purpose and channel-specific consent evidence.
+  - Verify phone validity, opt-out/DNC status, and suppression synchronization before each send.
+  - Define recipient timezone and approved local sending hours.
+  - Approve sender identity, reply routing, and opt-out wording with the team.
+  - Confirm the actual FUB/API/provider sending capability before enabling any send control.
+  - Apply a cross-channel frequency cap and a final named human send approval.
+windows:
+  event_market_days: 180
+  buyer_days: 90
+  nurture_min_days: 91
+  nurture_max_days: 365
+  dormant_min_days: 365
+  sync_event_history_days: 400
+limits:
+  program_emails_per_30_days: 2
+  dormant_attempts: 2
+  market_events_required: 2
+  accuracy_percent: 98
+  reviewed_contacts_required: 200
+  golden_contacts_required: 50
+unconfirmed_mappings:
+  active_transaction_stages: []
+  buyer_active_stages: []
+  past_client_stages: []
+  sphere_values: []
+  do_not_contact_tags: [OGM-EXCL, OGM-HOLD]
+  excluded_sources: [Zillow]
+  email_statuses: {}

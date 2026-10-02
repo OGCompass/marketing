@@ -1,0 +1,42 @@
+{
+  "name": "@workspace/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "build": "node ./build.mjs",
+    "start": "node --enable-source-maps ./dist/index.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:discovery": "esbuild src/lib/fub/discovery.test.ts --bundle --platform=node --format=esm --external:pino --external:yaml --outfile=dist/discovery-test.mjs && node --test dist/discovery-test.mjs",
+    "test:strategy": "esbuild src/lib/communication-strategy.test.ts --bundle --platform=node --format=esm --external:yaml --outfile=dist/communication-strategy-test.mjs && node --test dist/communication-strategy-test.mjs",
+    "test:approvals": "esbuild src/lib/program-approval-engine.test.ts --bundle --platform=node --format=esm --outfile=dist/program-approval-engine-test.mjs && node --test dist/program-approval-engine-test.mjs",
+    "test:approval-storage": "esbuild src/lib/approval-source-lock.test.ts src/lib/approval-database.test.ts src/lib/approval-history.test.ts src/lib/program.test.ts --bundle --platform=node --format=esm --external:@workspace/db --external:yaml --outdir=dist/approval-storage-tests --out-extension:.js=.mjs && node --test dist/approval-storage-tests/*.mjs",
+    "test:access": "esbuild src/lib/workspace-access-policy.test.ts src/lib/workspace-access-limits.test.ts src/lib/workspace-access-shared.test.ts --bundle --platform=node --format=esm --external:express --outdir=dist/access-tests --out-extension:.js=.mjs && node --test dist/access-tests/*.mjs",
+    "discover:fub": "esbuild src/lib/fub/discover-cli.ts --bundle --platform=node --format=esm --external:pino --external:yaml --outfile=dist/discovery-cli.mjs && node dist/discovery-cli.mjs"
+  },
+  "dependencies": {
+    "@clerk/express": "^2.1.73",
+    "@clerk/shared": "^4.37.0",
+    "@workspace/api-zod": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "drizzle-orm": "catalog:",
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^4.2.0",
+    "pino": "^9.14.0",
+    "pino-http": "^10.5.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:",
+    "esbuild": "0.28.2",
+    "esbuild-plugin-pino": "^2.3.3",
+    "pino-pretty": "^13.1.3",
+    "thread-stream": "3.1.0"
+  }
+}
