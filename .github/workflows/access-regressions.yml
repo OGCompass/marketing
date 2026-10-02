@@ -1,0 +1,69 @@
+name: Access regressions
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: access-regressions-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  access:
+    name: Isolated access checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked dependencies
+        id: dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and system dependencies
+        id: chromium
+        run: pnpm --filter @workspace/og-client-comms exec playwright install --with-deps chromium
+
+      # Run independent checks even if another check failed, but not if setup failed.
+      - name: Typecheck isolated browser tests
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: pnpm --filter @workspace/og-client-comms run test:access:browser:typecheck
+
+      - name: Test server access policy
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: pnpm --filter @workspace/api-server run test:access
+
+      - name: Test client access retries
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: pnpm --filter @workspace/og-client-comms run test:access
+
+      - name: Test isolated access browser flows
+        if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
+        run: pnpm --filter @workspace/og-client-comms run test:access:browser
+
+      - name: Retain access failure screenshots and traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: access-failure-evidence
+          path: artifacts/og-client-comms/test-results/access/
+          if-no-files-found: ignore
+          retention-days: 14
