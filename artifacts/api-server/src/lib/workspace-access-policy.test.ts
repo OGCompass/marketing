@@ -318,7 +318,3 @@ test("a changed verified primary email revokes access on the next request", asyn
   assert.deepEqual(secondRequest, { authorized: false, unavailable: false });
   assert.equal(lookups, 2);
 });
-// Temporary merge-enforcement verification; never merge this commit.
-test("required access check blocks an intentional regression", () => {
-  assert.fail("Intentional failure to verify GitHub merge blocking");
-});
